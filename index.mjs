@@ -1,6 +1,6 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
-
+import fs from 'fs';
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import Sharp from 'sharp';
 import dotenv from "dotenv";
@@ -134,7 +134,6 @@ export const handler = async (event) => {
                     }
                 };
             }
-            console
         } catch (error) {
             logError('Could not upload transformed image to S3', error);
         }
@@ -179,18 +178,25 @@ const imageSizes = [
     'original'
   ];
 
+// const 
 // Assuming imageSizes is an array of sizes you want to iterate over
 for (const [imageIndex, image] of imageArray.entries()) {
     const startTimeImageTime = performance.now();
+    if(!image.image_processed){
     for (const size of imageSizes) {
       // Construct the query string based on the image size
       const appendQuery = size === 'original' ? 'original' : `?format=avif,width=${size}`;
       // Log the image and query string
-      console.log(`${image}/${appendQuery}`);
+      console.log(`${image.product_image}/${appendQuery}`);
       // Wait for the handler function to complete for each image/size combination
-      await handler( decodeURIComponent(`${image}/${appendQuery}`));
-      // Log the time taken for this operation
+    await handler(decodeURIComponent(`${image.product_image}/${appendQuery}`));
+    const item = imageArray.find(findImage => (findImage.id === imageIndex + 1 && findImage.product_image === image.product_image));
+    if (item) {
+    item.image_processed = true;
     }
-    console.log(`Time taken for image: ${imageArray.length} - ${imageIndex}>`, performance.now() - startTimeImageTime, 'ms');
+    fs.writeFileSync('./image-array.json',JSON.stringify(imageArray, null, 2), 'utf-8' )
+    }
+    }
+    console.log(`Time taken for image: ${imageArray.length} - ${imageIndex + 1}>`, performance.now() - startTimeImageTime, 'ms');
   }
   
