@@ -8,7 +8,13 @@ import imageArray from './image-array.json' assert { type: 'json'}
 // const imageArray = require('./image-array.json')
 
 dotenv.config();
-const s3Client = new S3Client({region: 'ap-south-1'});
+const s3Client = new S3Client({
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+      },
+      region: process.env.AWS_DEFAULT_REGION || 'ap-south-1'
+});
 const S3_ORIGINAL_IMAGE_BUCKET = process.env.originalImageBucketName;
 const S3_TRANSFORMED_IMAGE_BUCKET = process.env.transformedImageBucketName;
 const TRANSFORMED_IMAGE_CACHE_TTL = process.env.transformedImageCacheTTL;
