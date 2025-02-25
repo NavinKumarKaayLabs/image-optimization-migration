@@ -16,11 +16,14 @@ import {
 import os from "os";
 import { promisify } from "util";
 
+import Redis from 'ioredis';
+const redis = new Redis()
+
 dotenv.config();
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 
-const NUM_CORES = os.cpus().length; // Get number of CPU cores
+const NUM_CORES = os.cpus().length -  2; // Get number of CPU cores
 const BATCH_SIZE = 3; // Number of images to process in parallel per worker
 const RETRY_ATTEMPTS = 3; // Number of retry attempts for failed operations
 
@@ -50,6 +53,31 @@ const imageSizes = [
   "original",
 ];
   
+
+const updateObjectInArray = async (id, processed) => {
+  const data = await redis.get("imageArray"); // Get array from Redis
+
+  if (!data) {
+      console.log("No data found!");
+      return;
+  }
+
+  let array = JSON.parse(data); // Convert string back to array
+
+  // Find and update the object
+  array = array.map(item => {
+      const returnItem = item;
+      if(returnItem.id === id){
+          returnItem.image_processed = processed;
+      }
+      // (item.id === id ? { ...item, ...newData } : item)
+      return item;
+  });
+
+  await redis.set("imageArray", JSON.stringify(array)); // Save updated array back to Redis
+  console.log("Array updated in Redis", id , processed);
+};
+
 // Worker thread code
 if (!isMainThread) {
   const { images, sizes } = workerData;
@@ -73,28 +101,32 @@ if (!isMainThread) {
       }
     }
     if (results.every((result) => result.success)) {
-      const data = await readFileAsync("./image-array.json", "utf-8"); // Read the file synchronous
-      const jsonData =  await JSON.parse(data); // Parse JSON content
-      const item = jsonData.find(
-        (findImage) =>
-          findImage.id === image.id &&
-          findImage.product_image === image.product_image
-      );
-      if (item) {
-        item.image_processed = true;
-      }
-      await writeFileAsync(
-        "./image-array.json",
-        JSON.stringify(jsonData, null, 2),
-        "utf-8"
-      );
+       await updateObjectInArray(image.id, true);
+
+      // const data = await readFileAsync("./image-array.json", "utf-8"); // Read the file synchronous
+      // const jsonData =  await JSON.parse(data); // Parse JSON content
+      // const item = jsonData.find(
+      //   (findImage) =>
+      //     findImage.id === image.id &&
+      //     findImage.product_image === image.product_image
+      // );
+      // if (item) {
+      //   item.image_processed = true;
+      // }
+      // await writeFileAsync(
+      //   "./image-array.json",
+      //   JSON.stringify(jsonData, null, 2),
+      //   "utf-8"
+      // );
       // const updatedImages = images.map((img) =>
       //   img.id === image.id && img.product_image === image.product_image ? { ...img, image_processed: true } : img
       // );  
       // // Send the updated images to the main thread
       // parentPort.postMessage(updatedImages);
       // console.log("Updated worker data:", updatedImages);
-      console.log("thread--->",threadId, image.id);
+      // console.log("thread--->",threadId, image.id);
+    } else {
+       await updateObjectInArray(image.id, true);
     }
 
     return results;
@@ -361,19 +393,19 @@ if (isMainThread) {
 
 }
 
-async function handleExit(signal) {
-    console.log(`Received ${signal}, cleaning up and exiting...`);
+// async function handleExit(signal) {
+//     console.log(`Received ${signal}, cleaning up and exiting...`);
 
-    const data = await readFileAsync("./image-array.json", "utf-8"); // Read the file synchronously
-    const jsonData = await JSON.parse(data); // Parse JSON content
-    await writeFileAsync(
-        "./image-array.json",
-        JSON.stringify(jsonData, null, 2),
-        "utf-8"
-      );
-    console.log('Cleanup complete, exiting process.');
-    process.exit(0); // Exit after async tasks are done
-}
+//     const data = await readFileAsync("./image-array.json", "utf-8"); // Read the file synchronously
+//     const jsonData = await JSON.parse(data); // Parse JSON content
+//     await writeFileAsync(
+//         "./image-array.json",
+//         JSON.stringify(jsonData, null, 2),
+//         "utf-8"
+//       );
+//     console.log('Cleanup complete, exiting process.');
+//     process.exit(0); // Exit after async tasks are done
+// }
 
-process.on('SIGINT', handleExit);
-process.on('SIGTERM', handleExit);
+// process.on('SIGINT', handleExit);
+// process.on('SIGTERM', handleExit);
