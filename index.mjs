@@ -23,7 +23,7 @@ dotenv.config();
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 
-const NUM_CORES = os.cpus().length -  2; // Get number of CPU cores
+const NUM_CORES = os.cpus().length -  1; // Get number of CPU cores
 const BATCH_SIZE = 3; // Number of images to process in parallel per worker
 const RETRY_ATTEMPTS = 3; // Number of retry attempts for failed operations
 
@@ -102,29 +102,6 @@ if (!isMainThread) {
     }
     if (results.every((result) => result.success)) {
        await updateObjectInArray(image.id, true);
-
-      // const data = await readFileAsync("./image-array.json", "utf-8"); // Read the file synchronous
-      // const jsonData =  await JSON.parse(data); // Parse JSON content
-      // const item = jsonData.find(
-      //   (findImage) =>
-      //     findImage.id === image.id &&
-      //     findImage.product_image === image.product_image
-      // );
-      // if (item) {
-      //   item.image_processed = true;
-      // }
-      // await writeFileAsync(
-      //   "./image-array.json",
-      //   JSON.stringify(jsonData, null, 2),
-      //   "utf-8"
-      // );
-      // const updatedImages = images.map((img) =>
-      //   img.id === image.id && img.product_image === image.product_image ? { ...img, image_processed: true } : img
-      // );  
-      // // Send the updated images to the main thread
-      // parentPort.postMessage(updatedImages);
-      // console.log("Updated worker data:", updatedImages);
-      // console.log("thread--->",threadId, image.id);
     } else {
        await updateObjectInArray(image.id, true);
     }
