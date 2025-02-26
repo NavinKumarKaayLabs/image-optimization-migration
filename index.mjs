@@ -17,7 +17,10 @@ import os from "os";
 import { promisify } from "util";
 
 import Redis from 'ioredis';
-const redis = new Redis()
+const redis = new Redis({
+  host: process.env.REDIS_HOST, // Redis server host
+  port: 6379, // Redis server port (default is 6379)
+})
 
 dotenv.config();
 const readFileAsync = promisify(fs.readFile);
@@ -28,10 +31,10 @@ const BATCH_SIZE = 3; // Number of images to process in parallel per worker
 const RETRY_ATTEMPTS = 3; // Number of retry attempts for failed operations
 
 const s3Client = new S3Client({
-  credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  },
+  // credentials: {
+  //     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  //     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  // },
   region: process.env.AWS_DEFAULT_REGION || "ap-south-1",
   //   maxAttempts: 3, // Built-in retry mechanism
 });
@@ -103,7 +106,7 @@ if (!isMainThread) {
     if (results.every((result) => result.success)) {
        await updateObjectInArray(image.id, true);
     } else {
-       await updateObjectInArray(image.id, true);
+       await updateObjectInArray(image.id, false);
     }
 
     return results;
@@ -346,7 +349,8 @@ if (isMainThread) {
   console.log("inside main thread");
   const data = fs.readFileSync("./image-array.json", "utf-8"); // Read the file synchronously
   const jsonData = JSON.parse(data); // Parse JSON content
-  const unprocessedImages = jsonData.filter((img) => !img.image_processed);
+  console.log("total images:", jsonData.length)
+  const unprocessedImages = jsonData.filter((img) => !img.image_processed).filter(img=>(img.id%2));
   console.log(
     `Starting processing of ${unprocessedImages.length} images using ${NUM_CORES} cores`
   );

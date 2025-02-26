@@ -10,6 +10,7 @@ const mergeFileToRedis = async () => {
   try {
     await redis.set("imageArray", JSON.stringify(imageArray));
     console.log("merged file to redis");
+    process.exit(1);
   } catch (error) {
     console.error("mergeRedisToFile error:", error);
   }
@@ -41,8 +42,11 @@ const getImageDataInRedis = async () => {
   }
   let array = JSON.parse(data); // Convert string back to array
   const initialValue = { optimizedImageLength: 0, notOptimizedImageLength: 0 };
+  const currentDateTimeUTC = new Date(); // Current date and time in UTC
+const currentDateTimeIST = new Date(currentDateTimeUTC.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
   console.log(
-    "get image data from redis",
+    "get image data from redis", currentDateTimeUTC, currentDateTimeIST,
     array.reduce((accumulator, currentValue) => {
       const returnObject = {};
       returnObject.optimizedImageLength =
@@ -54,7 +58,7 @@ const getImageDataInRedis = async () => {
       return returnObject;
     }, initialValue)
   );
-  process.exit(1)
+  process.exit(1);
 };
 
 const mergeRedisToFile = async () => {
@@ -74,6 +78,7 @@ const mergeRedisToFile = async () => {
   } catch (error) {
     console.log("mergeRedisToFile error:", error);
   }
+  process.exit(1);
 };
 
 console.log(process.argv, process.argv[2]);
