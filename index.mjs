@@ -26,7 +26,7 @@ dotenv.config();
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 
-const NUM_CORES = os.cpus().length -  1; // Get number of CPU cores
+const NUM_CORES = os.cpus().length -  4; // Get number of CPU cores
 const BATCH_SIZE = 3; // Number of images to process in parallel per worker
 const RETRY_ATTEMPTS = 3; // Number of retry attempts for failed operations
 
@@ -350,7 +350,7 @@ if (isMainThread) {
   const data = fs.readFileSync("./image-array.json", "utf-8"); // Read the file synchronously
   const jsonData = JSON.parse(data); // Parse JSON content
   console.log("total images:", jsonData.length)
-  const unprocessedImages = jsonData.filter((img) => !img.image_processed).filter(img=>(img.id%2));
+  const unprocessedImages = jsonData.filter((img) => !img.image_processed);
   console.log(
     `Starting processing of ${unprocessedImages.length} images using ${NUM_CORES} cores`
   );
