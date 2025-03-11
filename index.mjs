@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import {
   GetObjectCommand,
   PutObjectCommand,
@@ -18,15 +19,16 @@ import { promisify } from "util";
 
 import Redis from 'ioredis';
 const redis = new Redis({
-  host: process.env.REDIS_HOST, // Redis server host
+  host: process.env.REDIS_HOST || "localhost", // Redis server host
   port: 6379, // Redis server port (default is 6379)
 })
 
 dotenv.config();
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
+const mkdirAsync = promisify(fs.mkdir);
 
-const NUM_CORES = os.cpus().length -  4; // Get number of CPU cores
+const NUM_CORES = os.cpus().length -  1; // Get number of CPU cores
 const BATCH_SIZE = 3; // Number of images to process in parallel per worker
 const RETRY_ATTEMPTS = 3; // Number of retry attempts for failed operations
 
@@ -76,6 +78,7 @@ const updateObjectInArray = async (id, processed) => {
       // (item.id === id ? { ...item, ...newData } : item)
       return item;
   });
+  console.log("count-->",array.filter(i=>!i.image_processed).length)
 
   await redis.set("imageArray", JSON.stringify(array)); // Save updated array back to Redis
   console.log("Array updated in Redis", id , processed);
@@ -87,6 +90,7 @@ if (!isMainThread) {
 
   const processImage = async (image, imageIndex) => {
     const results = [];
+    console.time(image.product_image)
     for (const size of sizes) {
       try {
         const appendQuery =
@@ -94,7 +98,7 @@ if (!isMainThread) {
         await handler(`${image.product_image}?${appendQuery}`);
         results.push({ success: true, image: image.id, size });
       } catch (error) {
-        console.log('handler error-->', error)
+        console.log('handler error-->',`${image.product_image}` )
         results.push({
           success: false,
           image: image.id,
@@ -108,7 +112,7 @@ if (!isMainThread) {
     } else {
        await updateObjectInArray(image.id, false);
     }
-
+    console.timeEnd(image.product_image)
     return results;
   };
 
@@ -287,67 +291,24 @@ async function handler(event) {
 
   // handle gracefully generated images bigger than a specified limit (e.g. Lambda output object limit)
   const imageTooBig = Buffer.byteLength(transformedImage) > MAX_IMAGE_SIZE;
-
-  // upload transformed image back to S3 if required in the architecture
-  if (S3_TRANSFORMED_IMAGE_BUCKET) {
-    startTime = performance.now();
-    try {
-      const putImageCommand = new PutObjectCommand({
-        Body: transformedImage,
-        Bucket: S3_TRANSFORMED_IMAGE_BUCKET,
-        Key: originalImagePath + "/" + operationsPrefix,
-        ContentType: contentType,
-        CacheControl: TRANSFORMED_IMAGE_CACHE_TTL,
-      });
-      await s3Client.send(putImageCommand);
-      timingLog =
-        timingLog +
-        ",img-upload;dur=" +
-        parseInt(performance.now() - startTime);
-      console.log(
-        "image uploaded:",
-        originalImagePath + "/" + operationsPrefix,"threadId:", threadId
-      );
-      // If the generated image file is too big, send a redirection to the generated image on S3, instead of serving it synchronously from Lambda.
-      if (imageTooBig) {
-        return {
-          statusCode: 302,
-          headers: {
-            Location:
-              "/" +
-              originalImagePath +
-              "?" +
-              operationsPrefix.replace(/,/g, "&"),
-            "Cache-Control": "private,no-store",
-            "Server-Timing": timingLog,
-          },
-        };
-      }
-    } catch (error) {
-      throw new Error(error)
-    }
-  }
-
-  // Return error if the image is too big and a redirection to the generated image was not possible, else return transformed image
-  if (imageTooBig) {
-    return sendError(403, "Requested transformed image is too big", "");
-  } else
-    return {
-      statusCode: 200,
-      body: transformedImage.toString("base64"),
-      isBase64Encoded: true,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": TRANSFORMED_IMAGE_CACHE_TTL,
-        "Server-Timing": timingLog,
-      },
-    };
+  await saveTransformedImage(originalImagePath, operationsPrefix, transformedImage);
 }
 
+async function saveTransformedImage(originalImagePath, operationsPrefix, transformedImage) {
+  try {
+    const folderPath = path.join("migration1", originalImagePath);
+    await mkdirAsync(folderPath, { recursive: true });
+    const filePath = path.join(folderPath, operationsPrefix);
+    await writeFileAsync(filePath, transformedImage);
+    console.log("📂 Image saved:", filePath);
+  } catch (error) {
+    console.error("❌ Error saving image:", error);
+  }
+}
 // Main execution
 if (isMainThread) {
   console.log("inside main thread");
-  const data = fs.readFileSync("./image-array.json", "utf-8"); // Read the file synchronously
+  const data = await redis.get("imageArray");
   const jsonData = JSON.parse(data); // Parse JSON content
   console.log("total images:", jsonData.length)
   const unprocessedImages = jsonData.filter((img) => !img.image_processed);
