@@ -78,7 +78,7 @@ const updateObjectInArray = async (id, processed) => {
       // (item.id === id ? { ...item, ...newData } : item)
       return item;
   });
-  console.log("count-->",array.filter(i=>!i.image_processed).length)
+  console.log("not optimized count-->",array.filter(i=>!i.image_processed).length)
 
   await redis.set("imageArray", JSON.stringify(array)); // Save updated array back to Redis
   console.log("Array updated in Redis", id , processed);
@@ -296,7 +296,7 @@ async function handler(event) {
 
 async function saveTransformedImage(originalImagePath, operationsPrefix, transformedImage) {
   try {
-    const folderPath = path.join("migration1", originalImagePath);
+    const folderPath = path.join("migration", originalImagePath);
     await mkdirAsync(folderPath, { recursive: true });
     const filePath = path.join(folderPath, operationsPrefix);
     await writeFileAsync(filePath, transformedImage);
