@@ -16,6 +16,25 @@ const mergeFileToRedis = async () => {
   }
 };
 
+const mergeSplitFileToRedis = async () => {
+  try {
+    const  imageArray0 = require("./split/array-0.json");
+    const  imageArray1 = require("./split/array-1.json");
+    const  imageArray2 = require("./split/array-2.json");
+    const  imageArray3 = require("./split/array-3.json");
+
+    await redis.set("imageArray0", JSON.stringify(imageArray0));
+    await redis.set("imageArray1", JSON.stringify(imageArray1));
+    await redis.set("imageArray2", JSON.stringify(imageArray2));
+    await redis.set("imageArray3", JSON.stringify(imageArray3));
+
+    console.log("merged file to redis");
+    process.exit(1);
+  } catch (error) {
+    console.error("mergeRedisToFile error:", error);
+  }
+};
+
 const getImageDataInFile = async (id) => {
   const initialValue = { optimizedImageLength: 0, notOptimizedImageLength: 0 };
   console.log(
@@ -91,4 +110,6 @@ if (process.argv[2] === "mergeRedisToFile") {
   getImageDataInRedis();
 } else if (process.argv[2] === "getImageDataInFile") {
   getImageDataInFile();
+} else if (process.argv[2] === "mergeSplitFileToRedis") {
+  mergeSplitFileToRedis();
 }
