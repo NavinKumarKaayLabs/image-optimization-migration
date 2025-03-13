@@ -57,8 +57,7 @@ const imageSizes = [
   3840,
   "original",
 ];
-
-const imageArrayKey = process.argv[2] || 'imageArray0';  
+const imageArrayKey = process.env.redisKey || 'imageArray0';  
 
 const updateObjectInArray = async (id, processed) => {
   const data = await redis.get(imageArrayKey); // Get array from Redis
@@ -79,9 +78,8 @@ const updateObjectInArray = async (id, processed) => {
       return item;
   });
   console.log("not optimized count-->",array.filter(i=>!i.image_processed).length)
-
   await redis.set(imageArrayKey, JSON.stringify(array)); // Save updated array back to Redis
-  console.log("Array updated in Redis", id , processed);
+  console.log("Array updated in Redis", id , processed, imageArrayKey);
 };
 
 // Worker thread code
