@@ -57,10 +57,11 @@ const imageSizes = [
   3840,
   "original",
 ];
-  
+
+const imageArrayKey = process.argv[2] || 'imageArray0';  
 
 const updateObjectInArray = async (id, processed) => {
-  const data = await redis.get("imageArray"); // Get array from Redis
+  const data = await redis.get(imageArrayKey); // Get array from Redis
 
   if (!data) {
       console.log("No data found!");
@@ -75,12 +76,11 @@ const updateObjectInArray = async (id, processed) => {
       if(returnItem.id === id){
           returnItem.image_processed = processed;
       }
-      // (item.id === id ? { ...item, ...newData } : item)
       return item;
   });
   console.log("not optimized count-->",array.filter(i=>!i.image_processed).length)
 
-  await redis.set("imageArray", JSON.stringify(array)); // Save updated array back to Redis
+  await redis.set(imageArrayKey, JSON.stringify(array)); // Save updated array back to Redis
   console.log("Array updated in Redis", id , processed);
 };
 
@@ -296,7 +296,7 @@ async function handler(event) {
 
 async function saveTransformedImage(originalImagePath, operationsPrefix, transformedImage) {
   try {
-    const folderPath = path.join("migration", originalImagePath);
+    const folderPath = path.join("migration-folder", originalImagePath);
     await mkdirAsync(folderPath, { recursive: true });
     const filePath = path.join(folderPath, operationsPrefix);
     await writeFileAsync(filePath, transformedImage);
@@ -308,7 +308,7 @@ async function saveTransformedImage(originalImagePath, operationsPrefix, transfo
 // Main execution
 if (isMainThread) {
   console.log("inside main thread");
-  const data = await redis.get("imageArray");
+  const data = await redis.get(imageArrayKey);
   const jsonData = JSON.parse(data); // Parse JSON content
   console.log("total images:", jsonData.length)
   const unprocessedImages = jsonData.filter((img) => !img.image_processed);
@@ -334,20 +334,3 @@ if (isMainThread) {
     });
 
 }
-
-// async function handleExit(signal) {
-//     console.log(`Received ${signal}, cleaning up and exiting...`);
-
-//     const data = await readFileAsync("./image-array.json", "utf-8"); // Read the file synchronously
-//     const jsonData = await JSON.parse(data); // Parse JSON content
-//     await writeFileAsync(
-//         "./image-array.json",
-//         JSON.stringify(jsonData, null, 2),
-//         "utf-8"
-//       );
-//     console.log('Cleanup complete, exiting process.');
-//     process.exit(0); // Exit after async tasks are done
-// }
-
-// process.on('SIGINT', handleExit);
-// process.on('SIGTERM', handleExit);
