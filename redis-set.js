@@ -53,19 +53,16 @@ const getImageDataInFile = async (id) => {
   process.exit(1)
 };
 
-const getImageDataInRedis = async () => {
-  const data = await redis.get("imageArray"); // Get array from Redis
+const getImageDataInRedis = async (key = "imageArray") => {
+  const data = await redis.get(key); // Get array from Redis
   if (!data) {
     console.log("No data found!");
     return;
   }
   let array = JSON.parse(data); // Convert string back to array
   const initialValue = { optimizedImageLength: 0, notOptimizedImageLength: 0 };
-  const currentDateTimeUTC = new Date(); // Current date and time in UTC
-const currentDateTimeIST = new Date(currentDateTimeUTC.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-
   console.log(
-    "get image data from redis", currentDateTimeUTC, currentDateTimeIST,
+    "get image data from redis",
     array.reduce((accumulator, currentValue) => {
       const returnObject = {};
       returnObject.optimizedImageLength =
@@ -107,7 +104,7 @@ if (process.argv[2] === "mergeRedisToFile") {
 } else if (process.argv[2] === "mergeFileToRedis") {
   mergeFileToRedis();
 } else if (process.argv[2] === "getImageDataInRedis") {
-  getImageDataInRedis();
+  getImageDataInRedis(process.argv[3]);
 } else if (process.argv[2] === "getImageDataInFile") {
   getImageDataInFile();
 } else if (process.argv[2] === "mergeSplitFileToRedis") {
